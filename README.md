@@ -1,4 +1,4 @@
-# 🌍 Dynamic Region-Based Member Management System
+# Dynamic Region-Based Member Management System
 
 A modern, DBMS-driven web application designed to store, manage, and analyze member information across dynamically created hierarchical regions (State → District → Ward → Village or any custom structure).
 
@@ -6,7 +6,7 @@ This project demonstrates strong **Database Management System concepts**, **role
 
 ---
 
-## ✨ Features
+##  Features
 
 ### ✅ Dynamic Region Hierarchy
 - Create unlimited region levels (State, District, Ward, Village, Department, etc.)
@@ -42,7 +42,7 @@ Tracks every INSERT / UPDATE / DELETE action:
 
 ---
 
-## 🗄️ Database Schema (DBMS Core)
+##  Database Schema (DBMS Core)
 
 ### Tables Included
 - **regions**
@@ -61,7 +61,7 @@ Tracks every INSERT / UPDATE / DELETE action:
 
 ---
 
-## ⚙️ Tech Stack
+##  Tech Stack
 
 ### Frontend
 - React + Vite
@@ -79,9 +79,9 @@ Tracks every INSERT / UPDATE / DELETE action:
 
 ---
 
-## 🚀 Installation & Run
+##  Installation & Run
 
-### 1️⃣ Backend Setup
+### 1️ Backend Setup
 
 ```bash
 cd backend
