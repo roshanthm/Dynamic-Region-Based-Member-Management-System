@@ -1,8 +1,0 @@
-{
-  "name": "Dynamic Region-Based Member Management System",
-  "description": "A professional DBMS-based web platform designed for hierarchical regional management and member data analysis with role-based access control.",
-  "requestFramePermissions": [
-    "camera",
-    "microphone"
-  ]
-}
