@@ -5,6 +5,8 @@ import { User, UserRole } from './types';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import Members from './components/Members';
+import Regions from './components/Regions';
+import Logs from './components/Logs';
 import { ShieldCheck, Mail, KeyRound, ArrowRight, Activity, MapPin, Plus, Database, X, FileBarChart, PieChart, Users, Download, Upload, RefreshCcw } from 'lucide-react';
 import { KERALA_DISTRICTS } from './constants';
 
@@ -14,6 +16,7 @@ const App: React.FC = () => {
   const [loginForm, setLoginForm] = useState({ username: '', role: UserRole.ADMIN });
   const [districtFilter, setDistrictFilter] = useState<string>('');
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+  const [showSyncModal, setShowSyncModal] = useState(false);
   
   // DBMS State
   const [regions, setRegions] = useState(dbEngine.getRegions());
@@ -35,6 +38,14 @@ const App: React.FC = () => {
   // Initial Cloud Sync attempt on mount
   useEffect(() => {
     const initSync = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlKey = urlParams.get('db');
+      
+      if (urlKey && !dbEngine.getSyncKey()) {
+        dbEngine.setSyncKey(urlKey);
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+
       if (dbEngine.getSyncKey()) {
         setIsCloudSyncing(true);
         await dbEngine.pullFromCloud();
@@ -50,7 +61,6 @@ const App: React.FC = () => {
     const found = dbEngine.getUsers().find(u => u.username.trim().toLowerCase() === loginForm.username.trim().toLowerCase() && u.role === loginForm.role);
     if (found) {
       setUser(found);
-      // Attempt to pull latest data for this user context
       if (dbEngine.getSyncKey()) {
         setIsCloudSyncing(true);
         await dbEngine.pullFromCloud();
@@ -171,16 +181,35 @@ const App: React.FC = () => {
   }
 
   return (
-    <Layout user={user} onLogout={handleLogout} activePage={activePage} setActivePage={setActivePage} onSync={refreshState}>
+    <Layout 
+      user={user} 
+      onLogout={handleLogout} 
+      activePage={activePage} 
+      setActivePage={setActivePage} 
+      onSync={refreshState}
+      showSyncModal={showSyncModal}
+      setShowSyncModal={setShowSyncModal}
+    >
       {activePage === 'dashboard' && (
         <Dashboard 
           stats={stats} 
           regionData={dbEngine.getRegionStats()} 
           onDistrictFilter={setDistrictFilter}
           currentFilter={districtFilter}
+          onOpenSync={() => setShowSyncModal(true)}
         />
       )}
       
+      {activePage === 'regions' && (
+        <Regions 
+          regions={regions} 
+          onAddRegion={async (data) => {
+            await dbEngine.registerRegion(data, user.user_id);
+            refreshState();
+          }}
+        />
+      )}
+
       {activePage === 'members' && (
         <Members 
           members={members} 
@@ -340,7 +369,9 @@ const App: React.FC = () => {
          </div>
       )}
 
-      {/* Other pages like 'regions', 'logs' remain same... */}
+      {activePage === 'logs' && (
+        <Logs logs={logs} />
+      )}
     </Layout>
   );
 };
