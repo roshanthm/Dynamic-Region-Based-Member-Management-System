@@ -11,6 +11,9 @@ class RelationalDBMS {
 
   constructor() {
     this.loadFromStorage();
+    if (this.logs.length === 0) {
+      this.addLog('SYSTEM', 'LOGIN', 'AUTH', 'Institutional Node Initialized and Ready.');
+    }
   }
 
   private loadFromStorage() {
@@ -37,8 +40,11 @@ class RelationalDBMS {
 
   setSyncKey(key: string | null) {
     this.syncKey = key?.trim() || null;
-    if (this.syncKey) localStorage.setItem('db_sync_key', this.syncKey);
-    else localStorage.removeItem('db_sync_key');
+    if (this.syncKey) {
+      localStorage.setItem('db_sync_key', this.syncKey);
+    } else {
+      localStorage.removeItem('db_sync_key');
+    }
   }
 
   getSyncKey() { return this.syncKey; }
@@ -51,15 +57,15 @@ class RelationalDBMS {
         members: this.members,
         users: this.users,
         logs: this.logs,
-        lastSync: new Date().toISOString()
+        lastUpdated: new Date().toISOString()
       };
-      // kvdb.io is a public anonymous KV store. Perfect for this free no-api-key-required sync.
       await fetch(`https://kvdb.io/A6Qz3z8q5S2v2W9W8J9n2v/${this.syncKey}`, {
         method: 'POST',
         body: JSON.stringify(payload)
       });
+      console.log("Cloud Push Successful for bucket:", this.syncKey);
     } catch (e) {
-      console.warn("Cloud Sync Push Failed (Offline Mode):", e);
+      console.warn("Cloud Sync Push Failed (Working in Offline Mode):", e);
     }
   }
 
@@ -69,12 +75,12 @@ class RelationalDBMS {
       const res = await fetch(`https://kvdb.io/A6Qz3z8q5S2v2W9W8J9n2v/${this.syncKey}`);
       if (res.ok) {
         const data = await res.json();
-        if (data && data.members) {
+        if (data && (Array.isArray(data.members) || Array.isArray(data.logs))) {
           this.regions = data.regions || this.regions;
           this.members = data.members || this.members;
           this.users = data.users || this.users;
           this.logs = data.logs || this.logs;
-          // Silently update local storage to match cloud
+          
           localStorage.setItem('db_regions', JSON.stringify(this.regions));
           localStorage.setItem('db_members', JSON.stringify(this.members));
           localStorage.setItem('db_users', JSON.stringify(this.users));
@@ -90,7 +96,7 @@ class RelationalDBMS {
 
   private addLog(userId: string, action: ActivityLog['action_performed'], entity: ActivityLog['entity'], details: string) {
     const log: ActivityLog = {
-      log_id: `log-${Date.now()}`,
+      log_id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       user_id: userId,
       action_performed: action,
       entity,
@@ -98,6 +104,7 @@ class RelationalDBMS {
       timestamp: new Date().toISOString()
     };
     this.logs.unshift(log);
+    if (this.logs.length > 500) this.logs = this.logs.slice(0, 500);
   }
 
   private generateMemberId(district: string, ward: number): string {
@@ -142,8 +149,33 @@ class RelationalDBMS {
 
   getRegions(): Region[] { return [...this.regions]; }
 
+  async registerRegion(data: Omit<Region, 'region_id'>, userId: string) {
+    const region: Region = {
+      ...data,
+      region_id: `reg-${Date.now()}`
+    };
+    this.regions.push(region);
+    this.addLog(userId, 'INSERT', 'REGION', `New Region Added: ${region.region_name} (${region.region_level})`);
+    await this.persist();
+    return region;
+  }
+
+  async deleteRegion(id: string, userId: string) {
+    this.regions = this.regions.filter(r => r.region_id !== id);
+    this.addLog(userId, 'DELETE', 'REGION', `Region Removed: ${id}`);
+    await this.persist();
+  }
+
   getMembersJoined(role?: UserRole, assignedDistrictId?: string | null): JoinMemberRegion[] {
-    return this.members.map(m => {
+    let list = this.members;
+    if (role === UserRole.STAFF && assignedDistrictId) {
+      const districtRegion = this.regions.find(r => r.region_id === assignedDistrictId);
+      if (districtRegion) {
+        list = list.filter(m => m.district === districtRegion.region_name);
+      }
+    }
+    
+    return list.map(m => {
       const r = this.regions.find(reg => reg.region_id === m.region_id);
       return { ...m, region_name: r?.region_name || 'N/A', region_level: r?.region_level || 'WARD' } as JoinMemberRegion;
     });
@@ -158,7 +190,7 @@ class RelationalDBMS {
       created_at: new Date().toISOString()
     };
     this.members.push(member);
-    this.addLog(userId, 'INSERT', 'MEMBER', `Registered: ${member.full_name}`);
+    this.addLog(userId, 'INSERT', 'MEMBER', `New Registration: ${member.full_name} (${member.member_id})`);
     await this.persist();
     return member;
   }
@@ -177,14 +209,15 @@ class RelationalDBMS {
         });
       }
       this.members[idx] = updatedData;
-      this.addLog(userId, 'UPDATE', 'MEMBER', `Modified: ${id}`);
+      this.addLog(userId, 'UPDATE', 'MEMBER', `Data Revision: ${id}`);
       await this.persist();
     }
   }
 
   async deleteMember(id: string, userId: string) {
+    const member = this.members.find(m => m.member_id === id);
     this.members = this.members.filter(m => m.member_id !== id);
-    this.addLog(userId, 'DELETE', 'MEMBER', `Deleted: ${id}`);
+    this.addLog(userId, 'DELETE', 'MEMBER', `Removal: ${member?.full_name || id}`);
     await this.persist();
   }
 
