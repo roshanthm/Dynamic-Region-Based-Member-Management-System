@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { 
-  LayoutDashboard, MapPin, Users, BarChart3, ShieldCheck, LogOut, Menu, X, Bell, Activity, UserCircle, Globe, Cloud, CloudOff, RefreshCw, Key, Info
+  LayoutDashboard, MapPin, Users, BarChart3, ShieldCheck, LogOut, Menu, X, Bell, Activity, UserCircle, Globe, Cloud, CloudOff, RefreshCw, Key, Info, Share2, Copy, Check
 } from 'lucide-react';
 import { User, UserRole } from '../types';
 import { dbEngine } from '../services/db';
@@ -13,14 +13,16 @@ interface LayoutProps {
   activePage: string;
   setActivePage: (page: string) => void;
   onSync: () => void;
+  showSyncModal: boolean;
+  setShowSyncModal: (show: boolean) => void;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, activePage, setActivePage, onSync }) => {
+const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, activePage, setActivePage, onSync, showSyncModal, setShowSyncModal }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [showSyncModal, setShowSyncModal] = useState(false);
   const [syncKeyInput, setSyncKeyInput] = useState(dbEngine.getSyncKey() || '');
   const [syncing, setSyncing] = useState(false);
   const [manualSyncing, setManualSyncing] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: [UserRole.ADMIN, UserRole.STAFF, UserRole.SUPERVISOR] },
@@ -60,6 +62,15 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, activePage, s
     }
     // Artificial delay for visual feedback
     setTimeout(() => setManualSyncing(false), 800);
+  };
+
+  const handleCopyLink = () => {
+    const key = dbEngine.getSyncKey();
+    if (!key) return;
+    const shareUrl = `${window.location.origin}${window.location.pathname}?db=${encodeURIComponent(key)}`;
+    navigator.clipboard.writeText(shareUrl);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
   };
 
   return (
@@ -183,6 +194,27 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, activePage, s
                   onChange={e => setSyncKeyInput(e.target.value)}
                 />
               </div>
+
+              {dbEngine.getSyncKey() && (
+                <div className="p-6 bg-indigo-50 rounded-3xl border border-indigo-100 space-y-4">
+                  <div className="flex items-center gap-2 text-[10px] font-black text-indigo-600 uppercase tracking-widest">
+                    <Share2 className="w-3.5 h-3.5" /> Direct Access Link
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 bg-white px-4 py-2 rounded-xl text-[10px] font-bold text-slate-400 truncate border border-slate-100">
+                      {window.location.origin}/?db={dbEngine.getSyncKey()}
+                    </div>
+                    <button 
+                      onClick={handleCopyLink}
+                      className="p-3 bg-white hover:bg-indigo-600 hover:text-white text-indigo-600 rounded-xl transition-all shadow-sm border border-indigo-100"
+                    >
+                      {linkCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <p className="text-[9px] text-slate-400 font-bold text-center">Copy this link to another device to open this database instantly.</p>
+                </div>
+              )}
+
               <button 
                 onClick={handleSyncSetup}
                 disabled={syncing}
